@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+    <nav class="navbar navbar-inverse">
+      <div class="container-fluid">
+        <div class="navbar-header">
+          <a class="navbar-brand" href="{% url 'home' %}">AWM</a>
+        </div>
+        <ul class="nav navbar-nav">
+            <li class="active"><a href="{% url 'home' %}">Home</a></li>
+            <li><a href="{%  url 'pop_query' %}">Countries with population < 100000</a></li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+            <li><a><span></span> {{ user.username }}</a></li>
+          <li><a href="{%  url 'logout' %}"><span class="glyphicon glyphicon-log-in"></span> Logout</a></li>
+        </ul>
+      </div>
+    </nav>
+
+{% load leaflet_tags %}
+{% csrf_token %}
+
+    <style>
+        #mapid {
+            height: 50%;
+            width: 35%;
+        }
+    </style>
+
+    <h1>Where are you?</h1>
+
+    {% leaflet_js %}
+    {% leaflet_css %}
+
+    <div id="mapid">{% leaflet_map 'mapid' callback="add_Location"%}</div>
+
+    <script>
+        function add_Location(map) {
+            function onLocationFound(e) {
+                let radius = e.accuracy / 2;
+                L.marker(e.latlng).addTo(map);
+                L.circle(e.latlng, radius).addTo(map);
+                console.log(radius);
+                console.log({{ user.id }});
+
+
+                async function postData() {
+                    const data = {user_id: {{user.id}}, lat: e.latlng.lat, lon: e.latlng.lng};
+
+                    try {
+                        const response = await fetch('user_location/update_location/', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': getCookie('csrftoken')
+                            },
+                            body: JSON.stringify(data)
+                        });
+
+                        const responseData = await response.json();
+                        console.log(responseData);
+                    }   catch (error) {
+                        console.error('There was a problem with the fetch operation:'. error);
+                    }
+                }
+
+                postData();
+            }
+
+            function onLocationError(e) {
+                alert(e.message);
+            }
+
+            map.on('locationfound', onLocationFound);
+            map.on('locationerror', onLocationError);
+
+            map.locate({setView: true, maxZoom: 2});
+
+            function getCookie(name) {
+                const cookieValue = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+                return cookieValue ? cookieValue.pop() : '';
+            }
+        }
+    </script>
+
+{% endblock %}
